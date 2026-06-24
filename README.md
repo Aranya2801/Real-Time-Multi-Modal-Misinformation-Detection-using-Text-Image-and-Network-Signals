@@ -4,7 +4,7 @@
 
 <div align="center">
 
-<img src="assets/banner/banner.png" alt="VeriGuard AI Banner" width="100%">
+<img src="banner.png" alt="VeriGuard AI Banner" width="100%">
 
 # 🛡️ VeriGuard AI
 
