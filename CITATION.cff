@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use VeriGuard AI in your research, please cite it as below."
+title: "VeriGuard AI: Real-Time Multi-Modal Misinformation Detection via Text, Image, and Network Signals"
+version: 0.1.0
+date-released: 2026-06-15
+repository-code: "https://github.com/your-org/veriguard-ai"
+license: Apache-2.0
+type: software
+authors:
+  - family-names: "Contributors"
+    given-names: "VeriGuard AI"
+    affiliation: "VeriGuard AI Research"
+keywords:
+  - misinformation detection
+  - fake news
+  - multi-modal learning
+  - graph neural networks
+  - fact verification
+  - deepfake detection
+  - natural language processing
+preferred-citation:
+  type: article
+  title: "VeriGuard: A Cross-Attention Multi-Modal Framework for Real-Time Misinformation Detection with Graph-Based Propagation Analysis"
+  authors:
+    - family-names: "Contributors"
+      given-names: "VeriGuard AI"
+  year: 2026
+  journal: "arXiv preprint"

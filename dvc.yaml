@@ -1,0 +1,43 @@
+stages:
+  preprocess_text:
+    cmd: python scripts/preprocess_datasets.py --all
+    deps:
+      - scripts/preprocess_datasets.py
+      - data/raw/text
+    outs:
+      - data/processed
+
+  train_text:
+    cmd: python ml/training/train_text_classifier.py --config ml/configs/text_classifier.yaml
+    deps:
+      - ml/training/train_text_classifier.py
+      - ml/configs/text_classifier.yaml
+      - data/processed
+    outs:
+      - models/checkpoints/text
+
+  train_gnn:
+    cmd: python ml/training/train_gnn.py --config ml/configs/gnn_config.yaml
+    deps:
+      - ml/training/train_gnn.py
+      - ml/configs/gnn_config.yaml
+    outs:
+      - models/checkpoints/graph
+
+  train_fusion:
+    cmd: python ml/training/train_fusion.py --config ml/configs/fusion_config.yaml
+    deps:
+      - ml/training/train_fusion.py
+      - ml/configs/fusion_config.yaml
+      - models/checkpoints/text
+      - models/checkpoints/graph
+    outs:
+      - models/checkpoints/fusion
+
+  evaluate:
+    cmd: python ml/evaluation/evaluate_all.py
+    deps:
+      - ml/evaluation/evaluate_all.py
+      - models/checkpoints
+    outs:
+      - ml/evaluation/results

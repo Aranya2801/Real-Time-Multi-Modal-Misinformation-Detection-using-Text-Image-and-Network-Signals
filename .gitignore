@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Node / Next.js
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/.turbo/
+.npm/
+
+# ML artifacts
+models/checkpoints/*
+!models/checkpoints/.gitkeep
+data/raw/*
+data/processed/*
+data/external/*
+!data/**/.gitkeep
+*.pt
+*.bin
+*.ckpt
+*.onnx
+*.h5
+mlruns/
+wandb/
+.dvc/cache
+*.dvc.lock
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Build artifacts
+dist/
+build/
+*.zip
+
+# Browser extension
+browser-extension/*.crx
+browser-extension/*.pem
+
+# Research
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/*.toc
+paper/*.synctex.gz

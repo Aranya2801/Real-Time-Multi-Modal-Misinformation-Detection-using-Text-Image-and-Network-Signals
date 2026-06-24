@@ -1,0 +1,6 @@
+# DVC ignore file
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+.next/

@@ -1,0 +1,184 @@
+# ============================================================
+# VeriGuard AI — Docker Compose (full local development stack)
+# ============================================================
+#
+# Usage:
+#   cp .env.example .env && docker compose up -d
+#
+# Services:
+#   backend     FastAPI service      http://localhost:8000
+#   frontend    Next.js dashboard    http://localhost:3000
+#   postgres    PostgreSQL 16        localhost:5432
+#   redis       Redis 7              localhost:6379
+#   neo4j       Neo4j 5              http://localhost:7474
+#   mlflow      MLflow tracking UI   http://localhost:5000
+#   prometheus  Metrics scraper      http://localhost:9090
+#   grafana     Dashboards           http://localhost:3001
+
+version: "3.9"
+
+networks:
+  veriguard:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  neo4j_data:
+  mlflow_data:
+  prometheus_data:
+  grafana_data:
+
+services:
+
+  # ------------------------------------------------------------------ #
+  # Data stores
+  # ------------------------------------------------------------------ #
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-veriguard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-veriguard_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-veriguard}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks: [veriguard]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-veriguard}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks: [veriguard]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5-community
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-veriguard_dev_password}
+      NEO4J_PLUGINS: '["graph-data-science", "apoc"]'
+    volumes:
+      - neo4j_data:/data
+    ports:
+      - "7474:7474"   # HTTP browser
+      - "7687:7687"   # Bolt
+    networks: [veriguard]
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p ${NEO4J_PASSWORD:-veriguard_dev_password} 'MATCH (n) RETURN count(n)' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ------------------------------------------------------------------ #
+  # Backend API
+  # ------------------------------------------------------------------ #
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veriguard}:${POSTGRES_PASSWORD:-veriguard_dev_password}@postgres:5432/${POSTGRES_DB:-veriguard}
+      REDIS_URL: redis://redis:6379/0
+      NEO4J_URI: bolt://neo4j:7687
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      neo4j: {condition: service_healthy}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models:ro
+      - ./backend/app:/app/app  # hot-reload in dev
+    networks: [veriguard]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  # ------------------------------------------------------------------ #
+  # Frontend dashboard
+  # ------------------------------------------------------------------ #
+  frontend:
+    build:
+      context: ./frontend
+      target: runner
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    depends_on: [backend]
+    ports:
+      - "3000:3000"
+    networks: [veriguard]
+
+  # ------------------------------------------------------------------ #
+  # MLflow experiment tracking
+  # ------------------------------------------------------------------ #
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.16.2
+    restart: unless-stopped
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://${POSTGRES_USER:-veriguard}:${POSTGRES_PASSWORD:-veriguard_dev_password}@postgres:5432/${POSTGRES_DB:-veriguard}_mlflow
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+    volumes:
+      - mlflow_data:/mlflow/artifacts
+    depends_on:
+      postgres: {condition: service_healthy}
+    ports:
+      - "5000:5000"
+    networks: [veriguard]
+
+  # ------------------------------------------------------------------ #
+  # Monitoring
+  # ------------------------------------------------------------------ #
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    networks: [veriguard]
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: veriguard_grafana
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    depends_on: [prometheus]
+    ports:
+      - "3001:3000"
+    networks: [veriguard]
